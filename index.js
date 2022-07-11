@@ -1,63 +1,31 @@
-require('dotenv').config()
-const fs = require("fs");
+const express = require('express')
+const app = express()
+const port = 3000
+const { Client } = require('whatsapp-web.js');
 const qrcode = require("qrcode-terminal");
-const { Client } = require("whatsapp-web.js");
 
-// Path where the session data will be stored
-const SESSION_FILE_PATH = "./session.json";
-// Environment variables
-const country_code = process.env.COUNTRY_CODE;
-const number = process.env.NUMBER;
-const msg = process.env.MSG;
+const client = new Client();
 
-// Load the session data if it has been previously saved
-let sessionData;
-if (fs.existsSync(SESSION_FILE_PATH)) {
-    sessionData = require(SESSION_FILE_PATH);
-}
+client.on('qr', (qr) => {
+    qrcode.generate(qr, { small: true });
+});
 
-const client = new Client({
-    session: sessionData,
+client.on('ready', () => {
+    console.log('Client is ready!');
 });
 
 client.initialize();
 
-client.on("qr", (qr) => {
-    qrcode.generate(qr, { small: true });
-});
-
-// Save session values to the file upon successful auth
-client.on("authenticated", (session) => {
-    sessionData = session;
-    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
-        if (err) {
-            console.error(err);
-        }
-    });
-});
-
-client.on("auth_failure", msg => {
-    // Fired if session restore was unsuccessfull
-    console.error('AUTHENTICATION FAILURE', msg);
+app.get('/:number/:code', (req, res) => {
+    const number = req.params.number;
+    const code = req.params.code;
+    let chatId = `${number}@c.us`;
+    client.sendMessage(chatId, `Para acceder a tu cita médica ingresa a https://conferencias.beni.gob.bo/${code}`).then((response) => {
+        console.log("Enviado");
+    })
+    res.send('Mensaje enviado');
 })
-
-
-client.on("ready", () => {
-    console.log("Client is ready!");
-
-    setTimeout(() => {
-      let chatId = `${country_code}${number}@c.us`;
-        client.sendMessage(chatId, msg).then((response) => {
-            if (response.id.fromMe) {
-                console.log("It works!");
-            }
-        })
-    }, 5000);
-});
-
-client.on("message", message => {
-    if (message.body === "Hello") {
-        client.sendMessage(message.from, 'World!');
-    }
-});
-
+  
+app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`)
+})
